@@ -4,7 +4,7 @@ import ControlPanel from './components/ControlPanel'
 import SettingsPanel from './components/SettingsPanel'
 import { useNoteSequence } from './hooks/useNoteSequence'
 import { useAudioEngine } from './hooks/useAudioEngine'
-import { AppSettings, DoMode, GuitarPosition, MappedNote, NoteName, SolfegeNumber } from './types/guitar'
+import { AppSettings, DoMode, GuitarPosition, MappedNote, NoteName, SolfegeNumber, AppState } from './types/guitar'
 import { getNoteMidi, midiToTonePitch, midiToNoteName, MAJOR_SCALE_SEMITONES, noteNameToIndex } from './utils/guitarConstants'
 import { mapByPitch } from './utils/noteMapping'
 import './App.css'
@@ -20,6 +20,29 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 // localStorage key
 const STORAGE_KEY = 'guitar-practice-state'
+const APP_STATE_KEY = 'guitar-practice-app-state'
+
+// 从 localStorage 加载应用状态
+function loadAppState(): Partial<AppState> {
+  try {
+    const stored = localStorage.getItem(APP_STATE_KEY)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch (e) {
+    console.warn('Failed to load app state from localStorage:', e)
+  }
+  return {}
+}
+
+// 保存应用状态到 localStorage
+function saveAppState(state: AppState) {
+  try {
+    localStorage.setItem(APP_STATE_KEY, JSON.stringify(state))
+  } catch (e) {
+    console.warn('Failed to save app state to localStorage:', e)
+  }
+}
 
 // 从 localStorage 加载状态
 function loadStoredSettings(): AppSettings {
@@ -48,7 +71,14 @@ function App() {
   const [isSelectingPosition, setIsSelectingPosition] = useState(false)
   const [tapHighlight, setTapHighlight] = useState<GuitarPosition | null>(null)
   const [tapNoteInfo, setTapNoteInfo] = useState<MappedNote | null>(null)
-  const [isSequenceCollapsed, setIsSequenceCollapsed] = useState(true)
+
+  // 从 localStorage 恢复状态
+  const savedAppState = loadAppState()
+  const [isSequenceCollapsed, setIsSequenceCollapsed] = useState(savedAppState.isSequenceCollapsed ?? true)
+  const [restoredSequence, setRestoredSequence] = useState<SolfegeNumber[] | undefined>(savedAppState.sequence)
+  const [restoredPlaybackState, setRestoredPlaybackState] = useState(savedAppState.playbackState)
+  const [restoredCurrentIndex, setRestoredCurrentIndex] = useState(savedAppState.currentIndex)
+
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { playNote, init: initAudio, warmup: warmupAudio } = useAudioEngine()
 
@@ -63,7 +93,8 @@ function App() {
     pause,
     resume,
     stop,
-  } = useNoteSequence(settings)
+    setSequence,
+  } = useNoteSequence(settings, restoredSequence, restoredPlaybackState, restoredCurrentIndex)
 
   // 应用启动时预热音频引擎和音符映射缓存
   useEffect(() => {
@@ -100,13 +131,26 @@ function App() {
     saveSettings(settings)
   }, [settings])
 
-  // 监听窗口隐藏事件，在关闭窗口时暂停播放
+  // 保存应用状态（序列折叠状态、序列数据、播放状态）
+  useEffect(() => {
+    saveAppState({
+      isSequenceCollapsed,
+      sequence: sequence.length > 0 ? sequence : undefined,
+      playbackState,
+      currentIndex: currentIndex >= 0 ? currentIndex : undefined,
+    })
+  }, [isSequenceCollapsed, sequence, playbackState, currentIndex])
+
+  // 监听窗口隐藏事件，在关闭窗口时保存状态
   useEffect(() => {
     const handleWindowWillHide = () => {
-      // 如果正在播放，先暂停
-      if (playbackState === 'playing') {
-        pause()
-      }
+      // 保存当前状态到 localStorage
+      saveAppState({
+        isSequenceCollapsed,
+        sequence: sequence.length > 0 ? sequence : undefined,
+        playbackState,
+        currentIndex: currentIndex >= 0 ? currentIndex : undefined,
+      })
     }
     // 只在 Electron 环境中注册监听
     if (window.electron) {
@@ -117,7 +161,7 @@ function App() {
         window.electron.removeListener('window-will-hide', handleWindowWillHide)
       }
     }
-  }, [playbackState, pause])
+  }, [isSequenceCollapsed, sequence, playbackState, currentIndex])
 
   // 当折叠且没有序列时，自动生成
   useEffect(() => {

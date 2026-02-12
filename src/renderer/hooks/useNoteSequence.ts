@@ -7,15 +7,27 @@ import { useAudioEngine } from './useAudioEngine'
 /**
  * 音符序列播放控制 Hook
  * 使用混合调度方式：Tone.js 处理音频，setTimeout 处理循环控制
+ * @param settings 应用设置
+ * @param initialSequence 可选的初始序列（用于从 localStorage 恢复）
+ * @param initialPlaybackState 可选的初始播放状态（用于从 localStorage 恢复）
+ * @param initialCurrentIndex 可选的初始播放索引（用于从 localStorage 恢复）
  */
-export function useNoteSequence(settings: AppSettings) {
-  const [sequence, setSequence] = useState<SolfegeNumber[]>([])
-  const [playbackState, setPlaybackState] = useState<PlaybackState>('idle')
+export function useNoteSequence(
+  settings: AppSettings,
+  initialSequence?: SolfegeNumber[],
+  initialPlaybackState?: PlaybackState,
+  initialCurrentIndex?: number
+) {
+  const [sequence, setSequence] = useState<SolfegeNumber[]>(() => initialSequence ?? [])
+  const [playbackState, setPlaybackState] = useState<PlaybackState>(() => initialPlaybackState ?? 'idle')
   // 合并状态，减少重渲染
   const [playbackInfo, setPlaybackInfo] = useState<{
     currentIndex: number
     currentNote: MappedNote | null
-  }>({ currentIndex: -1, currentNote: null })
+  }>(() => ({
+    currentIndex: initialCurrentIndex ?? -1,
+    currentNote: null, // 重新打开窗口时不显示当前音符，需要用户重新播放
+  }))
 
   // 定时器引用
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -220,6 +232,7 @@ export function useNoteSequence(settings: AppSettings) {
     playFromIndex,
     pause,
     resume,
-    stop
+    stop,
+    setSequence,
   }
 }

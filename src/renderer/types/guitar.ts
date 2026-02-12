@@ -9,6 +9,18 @@ export interface GuitarPosition {
 /** 简谱音符 (1-7) */
 export type SolfegeNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
+/** 应用状态（用于持久化） */
+export interface AppState {
+  /** 序列是否折叠 */
+  isSequenceCollapsed: boolean
+  /** 当前序列（可选） */
+  sequence?: SolfegeNumber[]
+  /** 播放状态（可选） */
+  playbackState?: PlaybackState
+  /** 当前播放到的索引（可选） */
+  currentIndex?: number
+}
+
 /** 十二平均律音名 */
 export type NoteName = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B'
 
