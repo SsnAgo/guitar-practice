@@ -4,7 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('electron', {
   // 示例：可以在这里添加需要暴露给渲染进程的 API
   platform: process.platform,
-  
+
   // IPC 通信示例
   send: (channel: string, data: any) => {
     const validChannels = ['toMain']
@@ -12,11 +12,19 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.send(channel, data)
     }
   },
-  
+
   receive: (channel: string, func: (...args: any[]) => void) => {
-    const validChannels = ['fromMain']
+    const validChannels = ['fromMain', 'window-will-hide']
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => func(...args))
+    }
+  },
+
+  // 移除监听器
+  removeListener: (channel: string, func: (...args: any[]) => void) => {
+    const validChannels = ['fromMain', 'window-will-hide']
+    if (validChannels.includes(channel)) {
+      ipcRenderer.removeListener(channel, func)
     }
   }
 })
@@ -30,6 +38,7 @@ declare global {
       platform: string
       send: (channel: string, data: any) => void
       receive: (channel: string, func: (...args: any[]) => void) => void
+      removeListener: (channel: string, func: (...args: any[]) => void) => void
     }
   }
 }

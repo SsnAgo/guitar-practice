@@ -18,8 +18,33 @@ const DEFAULT_SETTINGS: AppSettings = {
   prepareDelayMs: 1000,
 }
 
+// localStorage key
+const STORAGE_KEY = 'guitar-practice-state'
+
+// 从 localStorage 加载状态
+function loadStoredSettings(): AppSettings {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+    }
+  } catch (e) {
+    console.warn('Failed to load settings from localStorage:', e)
+  }
+  return DEFAULT_SETTINGS
+}
+
+// 保存状态到 localStorage
+function saveSettings(settings: AppSettings) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+  } catch (e) {
+    console.warn('Failed to save settings to localStorage:', e)
+  }
+}
+
 function App() {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState<AppSettings>(() => loadStoredSettings())
   const [isSelectingPosition, setIsSelectingPosition] = useState(false)
   const [tapHighlight, setTapHighlight] = useState<GuitarPosition | null>(null)
   const [tapNoteInfo, setTapNoteInfo] = useState<MappedNote | null>(null)
@@ -69,6 +94,32 @@ function App() {
       document.removeEventListener('keydown', handleFirstInteraction)
     }
   }, [initAudio])
+
+  // 当设置改变时自动保存到 localStorage
+  useEffect(() => {
+    saveSettings(settings)
+  }, [settings])
+
+  // 监听窗口隐藏事件，在关闭窗口时暂停播放
+  useEffect(() => {
+    const handleWindowWillHide = () => {
+      // 如果正在播放，先暂停
+      if (playbackState === 'playing') {
+        pause()
+      }
+    }
+
+    // 只在 Electron 环境中注册监听
+    if (window.electron) {
+      window.electron.receive('window-will-hide', handleWindowWillHide)
+    }
+
+    return () => {
+      if (window.electron) {
+        window.electron.removeListener('window-will-hide', handleWindowWillHide)
+      }
+    }
+  }, [playbackState, pause])
 
   // 设置相关的回调
   const handleDoModeChange = useCallback((mode: DoMode) => {
