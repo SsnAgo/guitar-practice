@@ -2,6 +2,8 @@
 
 基于 Electron + React + TypeScript 的吉他简谱视奏练习桌面应用。
 
+![UI](image.png)
+
 ## 功能说明
 
 ### 指板与显示
