@@ -1,8 +1,9 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
 
-// 禁用硬件加速以避免某些显卡问题
-app.disableHardwareAcceleration()
+// 注意：保持硬件加速启用以获得最佳渲染性能
+// 如遇到 GPU 兼容性问题，可取消注释下面一行
+// app.disableHardwareAcceleration()
 
 let mainWindow: BrowserWindow | null = null
 

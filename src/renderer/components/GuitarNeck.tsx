@@ -6,6 +6,7 @@ import {
   DOUBLE_FRET_MARKERS,
   STANDARD_TUNING_NAMES
 } from '../utils/guitarConstants'
+import { useMemo, memo } from 'react'
 import './GuitarNeck.css'
 
 interface GuitarNeckProps {
@@ -34,10 +35,10 @@ const STRING_SPACING = NECK_HEIGHT / (STRING_COUNT - 1)
 
 /**
  * 计算品位的 X 坐标 (品位从左到右: 1品到14品, 琴头在右侧)
- * 
+ *
  * 真实吉他品位公式（十二平均律）:
  *   第 n 品到琴枕的距离 = scaleLength * (1 - 1 / 2^(n/12))
- * 
+ *
  * 将 0~14 品的范围映射到指板宽度内
  */
 const FRET_14_RATIO = 1 - Math.pow(2, -MAX_FRET / 12) // 14品占总弦长的比例
@@ -62,7 +63,7 @@ function getStringY(stringNum: number): number {
   return PADDING_TOP + (stringNum - 1) * STRING_SPACING
 }
 
-export default function GuitarNeck({
+function GuitarNeck({
   highlightPosition,
   tapHighlight,
   onPositionClick,
@@ -70,11 +71,42 @@ export default function GuitarNeck({
   doPosition
 }: GuitarNeckProps) {
 
-  const handleClick = (stringNum: number, fret: number) => {
-    if (onPositionClick) {
+  // 使用事件委托处理点击，提高性能
+  const handleSvgClick = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (!onPositionClick) return
+
+    const target = event.target as SVGElement
+    // 检查点击的是否是交互区域（rect 或 circle）
+    if ((target.tagName === 'rect' || target.tagName === 'circle') && target.hasAttribute('data-string')) {
+      const stringNum = parseInt(target.getAttribute('data-string')!, 10)
+      const fret = parseInt(target.getAttribute('data-fret')!, 10)
       onPositionClick({ string: stringNum, fret })
     }
   }
+
+  // 预计算所有点击区域的位置，避免渲染时重复计算
+  const clickAreas = useMemo(() => {
+    const areas: Array<{ string: number; fret: number; x: number; y: number; width: number; height: number }> = []
+    for (let s = 1; s <= STRING_COUNT; s++) {
+      for (let f = 0; f <= MAX_FRET; f++) {
+        const stringY = getStringY(s)
+        const fretLeft = f === 0 ? PADDING_LEFT - 30 : getFretX(f - 1)
+        const fretRight = getFretX(f)
+        const fretWidth = fretRight - fretLeft
+
+        // 方形点击区域：长80%，宽50%，居中于品格中心
+        areas.push({
+          string: s,
+          fret: f,
+          x: fretLeft + fretWidth * 0.1,        // 左侧留10%边距
+          y: stringY - STRING_SPACING * 0.25,  // 上下各留25%，使矩形居中
+          width: fretWidth * 0.8,              // 品格宽度的80%
+          height: STRING_SPACING * 0.5         // 弦间距的50%
+        })
+      }
+    }
+    return areas
+  }, [])
 
   return (
     <div className="guitar-neck-container">
@@ -82,6 +114,7 @@ export default function GuitarNeck({
         viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
         className="guitar-neck-svg"
         preserveAspectRatio="xMidYMid meet"
+        onClick={handleSvgClick}
       >
         {/* 指板背景 */}
         <rect
@@ -209,22 +242,22 @@ export default function GuitarNeck({
           琴头
         </text>
 
-        {/* 可点击区域 (始终渲染) */}
-        {Array.from({ length: STRING_COUNT }, (_, si) => si + 1).map(stringNum =>
-          Array.from({ length: MAX_FRET + 1 }, (_, fi) => fi).map(fret => (
-            <circle
-              key={`click-${stringNum}-${fret}`}
-              cx={getFretCenterX(fret)}
-              cy={getStringY(stringNum)}
-              r={12}
-              fill="transparent"
-              cursor={isSelectingDo ? 'crosshair' : 'pointer'}
-              onClick={() => handleClick(stringNum, fret)}
-            >
-              <title>{stringNum}弦{fret}品</title>
-            </circle>
-          ))
-        )}
+        {/* 可点击区域 (使用事件委托，data 属性用于识别) */}
+        {clickAreas.map(({ string, fret, x, y, width, height }) => (
+          <rect
+            key={`click-${string}-${fret}`}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            fill="transparent"
+            cursor={isSelectingDo ? 'crosshair' : 'pointer'}
+            data-string={string}
+            data-fret={fret}
+          >
+            <title>{string}弦{fret}品</title>
+          </rect>
+        ))}
 
         {/* do 位置标记 */}
         {doPosition && (
@@ -300,3 +333,6 @@ export default function GuitarNeck({
     </div>
   )
 }
+
+const GuitarNeckMemo = memo(GuitarNeck)
+export default GuitarNeckMemo

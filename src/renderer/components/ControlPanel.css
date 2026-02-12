@@ -154,6 +154,8 @@
   transition: all 0.2s ease;
   cursor: pointer;
   user-select: none;
+  /* GPU 加速提示 */
+  will-change: transform, background, color;
 }
 
 .sequence-note:hover {
@@ -167,6 +169,8 @@
   color: white;
   transform: scale(1.15);
   box-shadow: 0 0 12px rgba(255, 87, 34, 0.5);
+  /* 主动画需要持续优化 */
+  will-change: transform, box-shadow;
 }
 
 .sequence-note.played {

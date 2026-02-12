@@ -1,4 +1,5 @@
 import { PlaybackState, SolfegeNumber, MappedNote } from '../types/guitar'
+import { memo } from 'react'
 import './ControlPanel.css'
 
 /** 简谱数字对应的唱名 */
@@ -26,7 +27,7 @@ interface ControlPanelProps {
   tapNoteInfo: MappedNote | null
 }
 
-export default function ControlPanel({
+function ControlPanel({
   sequence,
   currentIndex,
   playbackState,
@@ -176,3 +177,6 @@ export default function ControlPanel({
     </div>
   )
 }
+
+const ControlPanelMemo = memo(ControlPanel)
+export default ControlPanelMemo

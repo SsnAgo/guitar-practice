@@ -1,11 +1,12 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import GuitarNeck from './components/GuitarNeck'
 import ControlPanel from './components/ControlPanel'
 import SettingsPanel from './components/SettingsPanel'
 import { useNoteSequence } from './hooks/useNoteSequence'
 import { useAudioEngine } from './hooks/useAudioEngine'
-import { AppSettings, DoMode, GuitarPosition, MappedNote, NoteName } from './types/guitar'
+import { AppSettings, DoMode, GuitarPosition, MappedNote, NoteName, SolfegeNumber } from './types/guitar'
 import { getNoteMidi, midiToTonePitch, midiToNoteName, MAJOR_SCALE_SEMITONES, noteNameToIndex } from './utils/guitarConstants'
+import { mapByPitch } from './utils/noteMapping'
 import './App.css'
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -23,7 +24,7 @@ function App() {
   const [tapHighlight, setTapHighlight] = useState<GuitarPosition | null>(null)
   const [tapNoteInfo, setTapNoteInfo] = useState<MappedNote | null>(null)
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { playNote, init: initAudio } = useAudioEngine()
+  const { playNote, init: initAudio, warmup: warmupAudio } = useAudioEngine()
 
   const {
     sequence,
@@ -37,6 +38,20 @@ function App() {
     resume,
     stop,
   } = useNoteSequence(settings)
+
+  // 应用启动时预热音频引擎和音符映射缓存
+  useEffect(() => {
+    // 预热音频
+    warmupAudio()
+
+    // 预热音符映射缓存：预计算 C 大调的所有音符（最常用）
+    // 这样第一次生成序列时就不会卡顿
+    setTimeout(() => {
+      for (let i = 1; i <= 7; i++) {
+        mapByPitch(i as SolfegeNumber, 'C')
+      }
+    }, 100) // 延迟 100ms，避免阻塞初始渲染
+  }, [warmupAudio])
 
   // 设置相关的回调
   const handleDoModeChange = useCallback((mode: DoMode) => {
@@ -107,7 +122,7 @@ function App() {
       setTapNoteInfo(null)
       tapTimerRef.current = null
     }, 1500)
-  }, [isSelectingPosition, initAudio, playNote])
+  }, [isSelectingPosition, initAudio, playNote, settings])
 
   return (
     <div className="app">

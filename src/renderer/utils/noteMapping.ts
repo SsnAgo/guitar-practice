@@ -24,18 +24,75 @@ const C_MAJOR_STANDARD_POSITIONS: Record<number, GuitarPosition> = {
 }
 
 /**
+ * 全局缓存：预计算所有可能的音符映射
+ * 缓存结构：cache[solfege][doMode][doValue] = MappedNote
+ */
+const NOTE_CACHE = new Map<string, MappedNote>()
+
+/**
+ * 生成缓存键
+ */
+function getCacheKey(solfege: SolfegeNumber, doMode: string, doValue: string): string {
+  return `${solfege}-${doMode}-${doValue}`
+}
+
+/**
+ * 预计算并缓存某个设置下的所有音符映射
+ */
+function precomputeMappings(
+  solfege: SolfegeNumber,
+  doMode: 'pitch' | 'position',
+  doNoteName?: NoteName,
+  doPosition?: GuitarPosition
+): MappedNote {
+  const doValue = doMode === 'pitch' ? doNoteName! : `${doPosition?.string}-${doPosition?.fret}`
+  const cacheKey = getCacheKey(solfege, doMode, doValue)
+
+  // 检查缓存
+  if (NOTE_CACHE.has(cacheKey)) {
+    return NOTE_CACHE.get(cacheKey)!
+  }
+
+  // 计算并缓存
+  let result: MappedNote
+  if (doMode === 'pitch') {
+    result = mapByPitchImpl(solfege, doNoteName!)
+  } else {
+    result = mapByPositionImpl(solfege, doPosition!)
+  }
+
+  NOTE_CACHE.set(cacheKey, result)
+  return result
+}
+
+/**
  * 根据音高（音名）移调模式，映射简谱数字到吉他位置
- * 
+ *
  * @param solfege 简谱数字 1-7
  * @param doNoteName do 对应的音名 (如 'C', 'D', 'G' 等)
  * @returns MappedNote
  */
 export function mapByPitch(solfege: SolfegeNumber, doNoteName: NoteName): MappedNote {
-  // 计算目标音的MIDI编号
-  const doIndex = noteNameToIndex(doNoteName)
-  const semitoneOffset = MAJOR_SCALE_SEMITONES[solfege - 1]
-  const targetNoteIndex = (doIndex + semitoneOffset) % 12
+  // 使用缓存
+  return precomputeMappings(solfege, 'pitch', doNoteName)
+}
 
+/**
+ * 根据位置指定模式，映射简谱数字到吉他位置
+ *
+ * @param solfege 简谱数字 1-7
+ * @param doPosition do(1) 在吉他上的位置
+ * @returns MappedNote
+ */
+export function mapByPosition(solfege: SolfegeNumber, doPosition: GuitarPosition): MappedNote {
+  // 使用缓存
+  return precomputeMappings(solfege, 'position', undefined, doPosition)
+}
+
+/**
+ * 根据音高（音名）移调模式，映射简谱数字到吉他位置（内部实现，无缓存）
+ */
+function mapByPitchImpl(solfege: SolfegeNumber, doNoteName: NoteName): MappedNote {
   // 如果是C大调，直接用标准指法
   if (doNoteName === 'C') {
     const pos = C_MAJOR_STANDARD_POSITIONS[solfege]
@@ -68,13 +125,9 @@ export function mapByPitch(solfege: SolfegeNumber, doNoteName: NoteName): Mapped
 }
 
 /**
- * 根据位置指定模式，映射简谱数字到吉他位置
- * 
- * @param solfege 简谱数字 1-7
- * @param doPosition do(1) 在吉他上的位置
- * @returns MappedNote
+ * 根据位置指定模式，映射简谱数字到吉他位置（内部实现，无缓存）
  */
-export function mapByPosition(solfege: SolfegeNumber, doPosition: GuitarPosition): MappedNote {
+function mapByPositionImpl(solfege: SolfegeNumber, doPosition: GuitarPosition): MappedNote {
   const doMidi = getNoteMidi(doPosition.string, doPosition.fret)
   const semitoneOffset = MAJOR_SCALE_SEMITONES[solfege - 1]
   const targetMidi = doMidi + semitoneOffset
@@ -92,6 +145,7 @@ export function mapByPosition(solfege: SolfegeNumber, doPosition: GuitarPosition
 
 /**
  * 寻找最优吉他位置 (靠近参考位置)
+ * 优化：提前计算目标品位范围，减少循环
  */
 function findBestPosition(targetMidi: number, referencePos: GuitarPosition): GuitarPosition {
   let bestPos: GuitarPosition = { string: 1, fret: 0 }
