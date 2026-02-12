@@ -7,6 +7,7 @@ import * as Tone from 'tone'
  */
 export function useAudioEngine() {
   const synthRef = useRef<Tone.PluckSynth | null>(null)
+  const reverbRef = useRef<Tone.Reverb | null>(null)
   const isInitializedRef = useRef(false)
 
   /** 初始化 Tone.js 和合成器 */
@@ -20,13 +21,23 @@ export function useAudioEngine() {
       // 需要用户交互后才能启动 AudioContext
       await Tone.start()
 
-      // 使用 PluckSynth 模拟拨弦音色
-      synthRef.current = new Tone.PluckSynth({
-        attackNoise: 1.2,
-        dampening: 4000,
-        resonance: 0.95,
-        release: 1.2,
+      // 创建混响效果，增加空间感
+      reverbRef.current = new Tone.Reverb({
+        decay: 3.5,      // 混响衰减时间（更长）
+        preDelay: 0.01,  // 预延迟
+        wet: 0.3         // 混响混合比例（稍微增加）
       }).toDestination()
+
+      // 等待混响加载完成
+      await reverbRef.current.generate()
+
+      // 使用 PluckSynth 模拟拨弦音色，调整参数更柔和
+      synthRef.current = new Tone.PluckSynth({
+        attackNoise: 2,      // 增加拨弦感
+        dampening: 8000,     // 提高高频衰减，让高音更明亮响亮
+        resonance: 0.92,     // 稍微增加共鸣
+        release: 4,          // 更长的延音（4秒）
+      }).connect(reverbRef.current)
 
       isInitializedRef.current = true
     } catch (error) {
@@ -47,13 +58,21 @@ export function useAudioEngine() {
       // 尝试启动 AudioContext
       await Tone.start()
 
-      // 创建合成器并连接到输出
-      synthRef.current = new Tone.PluckSynth({
-        attackNoise: 1.2,
-        dampening: 4000,
-        resonance: 0.95,
-        release: 1.2,
+      // 创建混响
+      reverbRef.current = new Tone.Reverb({
+        decay: 3.5,
+        preDelay: 0.01,
+        wet: 0.3
       }).toDestination()
+      await reverbRef.current.generate()
+
+      // 创建合成器并连接到混响
+      synthRef.current = new Tone.PluckSynth({
+        attackNoise: 2,
+        dampening: 8000,
+        resonance: 0.92,
+        release: 4,
+      }).connect(reverbRef.current)
 
       isInitializedRef.current = true
     } catch {
@@ -89,6 +108,10 @@ export function useAudioEngine() {
       if (synthRef.current) {
         synthRef.current.dispose()
         synthRef.current = null
+      }
+      if (reverbRef.current) {
+        reverbRef.current.dispose()
+        reverbRef.current = null
       }
       isInitializedRef.current = false
     }
