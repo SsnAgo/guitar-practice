@@ -1,0 +1,302 @@
+import { GuitarPosition } from '../types/guitar'
+import {
+  STRING_COUNT,
+  MAX_FRET,
+  FRET_MARKERS,
+  DOUBLE_FRET_MARKERS,
+  STANDARD_TUNING_NAMES
+} from '../utils/guitarConstants'
+import './GuitarNeck.css'
+
+interface GuitarNeckProps {
+  /** 当前播放高亮的位置 */
+  highlightPosition?: GuitarPosition | null
+  /** 点击试音高亮的位置 */
+  tapHighlight?: GuitarPosition | null
+  /** 点击某个位置的回调 */
+  onPositionClick?: (position: GuitarPosition) => void
+  /** 是否处于选择do位置模式 */
+  isSelectingDo?: boolean
+  /** do 的位置 (显示 do 标记) */
+  doPosition?: GuitarPosition | null
+}
+
+// SVG 尺寸和布局参数
+const SVG_WIDTH = 1100
+const SVG_HEIGHT = 260
+const PADDING_LEFT = 60    // 左侧留出弦名空间
+const PADDING_RIGHT = 60   // 右侧留出琴头空间
+const PADDING_TOP = 30
+const PADDING_BOTTOM = 30
+const NECK_WIDTH = SVG_WIDTH - PADDING_LEFT - PADDING_RIGHT
+const NECK_HEIGHT = SVG_HEIGHT - PADDING_TOP - PADDING_BOTTOM
+const STRING_SPACING = NECK_HEIGHT / (STRING_COUNT - 1)
+
+/**
+ * 计算品位的 X 坐标 (品位从左到右: 1品到14品, 琴头在右侧)
+ * 
+ * 真实吉他品位公式（十二平均律）:
+ *   第 n 品到琴枕的距离 = scaleLength * (1 - 1 / 2^(n/12))
+ * 
+ * 将 0~14 品的范围映射到指板宽度内
+ */
+const FRET_14_RATIO = 1 - Math.pow(2, -MAX_FRET / 12) // 14品占总弦长的比例
+
+function getFretX(fret: number): number {
+  if (fret === 0) return PADDING_LEFT
+  const ratio = (1 - Math.pow(2, -fret / 12)) / FRET_14_RATIO
+  return PADDING_LEFT + ratio * NECK_WIDTH
+}
+
+/** 获取品位中间位置 (用于放置标记点) */
+function getFretCenterX(fret: number): number {
+  if (fret === 0) return PADDING_LEFT - 15 // 空弦标记在琴枕左侧
+  const left = getFretX(fret - 1)
+  const right = getFretX(fret)
+  return (left + right) / 2
+}
+
+/** 获取弦的 Y 坐标 (1弦最细在最上面，6弦最粗在最下面 -- 但俯视角6弦在下) */
+function getStringY(stringNum: number): number {
+  // stringNum: 1=最细(上), 6=最粗(下)
+  return PADDING_TOP + (stringNum - 1) * STRING_SPACING
+}
+
+export default function GuitarNeck({
+  highlightPosition,
+  tapHighlight,
+  onPositionClick,
+  isSelectingDo = false,
+  doPosition
+}: GuitarNeckProps) {
+
+  const handleClick = (stringNum: number, fret: number) => {
+    if (onPositionClick) {
+      onPositionClick({ string: stringNum, fret })
+    }
+  }
+
+  return (
+    <div className="guitar-neck-container">
+      <svg
+        viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+        className="guitar-neck-svg"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {/* 指板背景 */}
+        <rect
+          x={PADDING_LEFT}
+          y={PADDING_TOP - 8}
+          width={NECK_WIDTH}
+          height={NECK_HEIGHT + 16}
+          rx={4}
+          fill="#5D3A1A"
+          opacity={0.9}
+        />
+
+        {/* 琴枕 (左侧) */}
+        <rect
+          x={PADDING_LEFT - 3}
+          y={PADDING_TOP - 10}
+          width={6}
+          height={NECK_HEIGHT + 20}
+          fill="#F5F0E8"
+          rx={2}
+        />
+
+        {/* 品丝 (垂直线) */}
+        {Array.from({ length: MAX_FRET }, (_, i) => i + 1).map(fret => (
+          <line
+            key={`fret-${fret}`}
+            x1={getFretX(fret)}
+            y1={PADDING_TOP - 8}
+            x2={getFretX(fret)}
+            y2={PADDING_TOP + NECK_HEIGHT + 8}
+            stroke="#C0C0C0"
+            strokeWidth={2}
+          />
+        ))}
+
+        {/* 品位标记 (圆点) */}
+        {FRET_MARKERS.filter(f => !DOUBLE_FRET_MARKERS.includes(f)).map(fret => (
+          <circle
+            key={`marker-${fret}`}
+            cx={getFretCenterX(fret)}
+            cy={PADDING_TOP + NECK_HEIGHT / 2}
+            r={6}
+            fill="#D4C4A0"
+            opacity={0.6}
+          />
+        ))}
+
+        {/* 12品双圆点 */}
+        {DOUBLE_FRET_MARKERS.map(fret => (
+          <g key={`dmarker-${fret}`}>
+            <circle
+              cx={getFretCenterX(fret)}
+              cy={PADDING_TOP + NECK_HEIGHT / 2 - STRING_SPACING * 1.2}
+              r={6}
+              fill="#D4C4A0"
+              opacity={0.6}
+            />
+            <circle
+              cx={getFretCenterX(fret)}
+              cy={PADDING_TOP + NECK_HEIGHT / 2 + STRING_SPACING * 1.2}
+              r={6}
+              fill="#D4C4A0"
+              opacity={0.6}
+            />
+          </g>
+        ))}
+
+        {/* 品位编号 */}
+        {[1, 3, 5, 7, 9, 12, 14].map(fret => (
+          <text
+            key={`fnum-${fret}`}
+            x={getFretCenterX(fret)}
+            y={PADDING_TOP - 16}
+            textAnchor="middle"
+            fontSize={11}
+            fill="#999"
+          >
+            {fret}
+          </text>
+        ))}
+
+        {/* 弦 */}
+        {Array.from({ length: STRING_COUNT }, (_, i) => i + 1).map(stringNum => {
+          const y = getStringY(stringNum)
+          // 弦的粗细 (1弦最细, 6弦最粗)
+          const thickness = 0.8 + (stringNum - 1) * 0.4
+          return (
+            <line
+              key={`string-${stringNum}`}
+              x1={PADDING_LEFT}
+              y1={y}
+              x2={PADDING_LEFT + NECK_WIDTH}
+              y2={y}
+              stroke={stringNum <= 3 ? '#E8E0D0' : '#C8A860'}
+              strokeWidth={thickness}
+              opacity={0.9}
+            />
+          )
+        })}
+
+        {/* 弦名标签 (左侧) */}
+        {Array.from({ length: STRING_COUNT }, (_, i) => i + 1).map(stringNum => (
+          <text
+            key={`sname-${stringNum}`}
+            x={PADDING_LEFT - 25}
+            y={getStringY(stringNum) + 4}
+            textAnchor="middle"
+            fontSize={13}
+            fill="#aaa"
+            fontWeight="bold"
+          >
+            {stringNum}{STANDARD_TUNING_NAMES[stringNum - 1]}
+          </text>
+        ))}
+
+        {/* 琴头标签 (右侧) */}
+        <text
+          x={SVG_WIDTH - 20}
+          y={SVG_HEIGHT / 2 + 5}
+          textAnchor="middle"
+          fontSize={13}
+          fill="#888"
+          fontWeight="bold"
+        >
+          琴头
+        </text>
+
+        {/* 可点击区域 (始终渲染) */}
+        {Array.from({ length: STRING_COUNT }, (_, si) => si + 1).map(stringNum =>
+          Array.from({ length: MAX_FRET + 1 }, (_, fi) => fi).map(fret => (
+            <circle
+              key={`click-${stringNum}-${fret}`}
+              cx={getFretCenterX(fret)}
+              cy={getStringY(stringNum)}
+              r={12}
+              fill="transparent"
+              cursor={isSelectingDo ? 'crosshair' : 'pointer'}
+              onClick={() => handleClick(stringNum, fret)}
+            >
+              <title>{stringNum}弦{fret}品</title>
+            </circle>
+          ))
+        )}
+
+        {/* do 位置标记 */}
+        {doPosition && (
+          <g>
+            <circle
+              cx={getFretCenterX(doPosition.fret)}
+              cy={getStringY(doPosition.string)}
+              r={13}
+              fill="none"
+              stroke="#4CAF50"
+              strokeWidth={2.5}
+              strokeDasharray="4 2"
+            />
+            <text
+              x={getFretCenterX(doPosition.fret)}
+              y={getStringY(doPosition.string) + 4}
+              textAnchor="middle"
+              fontSize={10}
+              fill="#4CAF50"
+              fontWeight="bold"
+            >
+              do
+            </text>
+          </g>
+        )}
+
+        {/* 点击试音高亮 (蓝色) */}
+        {tapHighlight && (
+          <g>
+            <circle
+              cx={getFretCenterX(tapHighlight.fret)}
+              cy={getStringY(tapHighlight.string)}
+              r={16}
+              fill="#2196F3"
+              opacity={0.25}
+            />
+            <circle
+              cx={getFretCenterX(tapHighlight.fret)}
+              cy={getStringY(tapHighlight.string)}
+              r={11}
+              fill="#2196F3"
+              stroke="white"
+              strokeWidth={2}
+              className="tap-dot"
+            />
+          </g>
+        )}
+
+        {/* 当前播放高亮位置 (红色) */}
+        {highlightPosition && (
+          <g>
+            {/* 发光效果 */}
+            <circle
+              cx={getFretCenterX(highlightPosition.fret)}
+              cy={getStringY(highlightPosition.string)}
+              r={16}
+              fill="#FF5722"
+              opacity={0.25}
+            />
+            {/* 主圆点 */}
+            <circle
+              cx={getFretCenterX(highlightPosition.fret)}
+              cy={getStringY(highlightPosition.string)}
+              r={11}
+              fill="#FF5722"
+              stroke="white"
+              strokeWidth={2}
+              className="highlight-dot"
+            />
+          </g>
+        )}
+      </svg>
+    </div>
+  )
+}
