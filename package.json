@@ -41,6 +41,7 @@
       "dist/**/*",
       "package.json"
     ],
+    "asar": false,
     "mac": {
       "category": "public.app-category.music",
       "hardenedRuntime": true,
@@ -50,17 +51,19 @@
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": ["arm64"]
+        },
+        {
+          "target": "dmg",
+          "arch": ["x64"]
         },
         {
           "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": ["arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
         }
       ]
     },

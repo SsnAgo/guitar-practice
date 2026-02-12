@@ -1,9 +1,16 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
 
-// 注意：保持硬件加速启用以获得最佳渲染性能
-// 如遇到 GPU 兼容性问题，可取消注释下面一行
-// app.disableHardwareAcceleration()
+// 确保 GPU 硬件加速启用，提升 SVG 渲染性能
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder')
+app.commandLine.appendSwitch('disable-gpu-vsync')
+
+// 调试：打印 GPU 加速状态
+app.on('ready', () => {
+  console.log('=== GPU Acceleration Status ===')
+  console.log('GPU Feature Status:', app.getGPUFeatureStatus())
+  console.log('=== End GPU Status ===')
+})
 
 let mainWindow: BrowserWindow | null = null
 
@@ -19,12 +26,18 @@ function createWindow() {
       contextIsolation: true
     },
     title: 'Guitar Practice',
-    show: false
+    show: false,
+    // 背景色避免透明度计算开销
+    backgroundColor: '#ffffff'
   })
 
   // 窗口准备好后再显示，避免闪烁
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
+    // 打印渲染进程信息
+    mainWindow?.webContents.on('did-finish-load', () => {
+      console.log('Renderer process loaded')
+    })
   })
 
   // 开发环境加载开发服务器，生产环境加载打包后的文件

@@ -4,6 +4,9 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  /* 启用 GPU 合成层，提升渲染性能 */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .guitar-neck-svg {
@@ -11,42 +14,79 @@
   max-width: 1100px;
   height: auto;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
+  /* 提示浏览器为 SVG 创建单独的合成层 */
+  isolation: isolate;
+}
+
+/* 静态层：提示浏览器不会变化，优化渲染 */
+.static-neck-layer {
+  will-change: auto;
+}
+
+/* 点击区域层：不需要动画 */
+.click-areas-layer {
+  pointer-events: all;
+}
+
+/* 动态高亮层：GPU 加速 */
+.dynamic-highlight-layer {
+  /* 为整个动态层启用 GPU 加速 */
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .highlight-dot {
   animation: pulse 0.5s ease-in-out infinite alternate;
-  /* GPU 加速提示 - 在无 GPU 设备上会自动回退 */
-  will-change: opacity, r;
+  /* 使用 CSS transform 实现动画，比 SVG 属性动画更高效 */
+  transform-origin: center;
+  transform-box: fill-box;
+  will-change: transform, opacity;
 }
 
 @keyframes pulse {
   from {
     opacity: 0.85;
-    r: 11;
+    transform: scale(1);
   }
   to {
     opacity: 1;
-    r: 13;
+    transform: scale(1.15);
   }
 }
 
 .tap-dot {
   animation: tap-fade 0.8s ease-out forwards;
-  /* GPU 加速提示 - 在无 GPU 设备上会自动回退 */
-  will-change: opacity, r;
+  /* 使用 CSS transform 实现动画 */
+  transform-origin: center;
+  transform-box: fill-box;
+  will-change: transform, opacity;
 }
 
 @keyframes tap-fade {
   0% {
     opacity: 1;
-    r: 12;
+    transform: scale(1.1);
   }
   70% {
     opacity: 0.9;
-    r: 11;
+    transform: scale(1);
   }
   100% {
     opacity: 0.7;
-    r: 10;
+    transform: scale(0.95);
+  }
+}
+
+/* do 标记：使用 CSS 动画实现虚线流动效果 */
+.do-marker circle {
+  transform-origin: center;
+  transform-box: fill-box;
+  will-change: stroke-dashoffset;
+  animation: dash-flow 1s linear infinite;
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -6;
   }
 }

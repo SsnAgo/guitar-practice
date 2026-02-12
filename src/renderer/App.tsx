@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import GuitarNeck from './components/GuitarNeck'
 import ControlPanel from './components/ControlPanel'
 import SettingsPanel from './components/SettingsPanel'
@@ -52,6 +52,23 @@ function App() {
       }
     }, 100) // 延迟 100ms，避免阻塞初始渲染
   }, [warmupAudio])
+
+  // 在用户首次交互时初始化音频引擎
+  // 这样等到点击"播放"按钮时，音频已经准备好了，消除延迟
+  useEffect(() => {
+    const handleFirstInteraction = async () => {
+      await initAudio()
+    }
+
+    // 监听点击和按键事件，只触发一次
+    document.addEventListener('click', handleFirstInteraction, { once: true })
+    document.addEventListener('keydown', handleFirstInteraction, { once: true })
+
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction)
+      document.removeEventListener('keydown', handleFirstInteraction)
+    }
+  }, [initAudio])
 
   // 设置相关的回调
   const handleDoModeChange = useCallback((mode: DoMode) => {

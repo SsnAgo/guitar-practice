@@ -1,5 +1,5 @@
 import { PlaybackState, SolfegeNumber, MappedNote } from '../types/guitar'
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import './ControlPanel.css'
 
 /** 简谱数字对应的唱名 */
@@ -26,6 +26,39 @@ interface ControlPanelProps {
   onPrepareDelayChange: (ms: number) => void
   tapNoteInfo: MappedNote | null
 }
+
+/**
+ * 单个序列音符组件 - 使用 memo 优化，只在自身状态变化时重渲染
+ */
+const SequenceNoteItem = memo(function SequenceNoteItem({
+  note,
+  index,
+  currentIndex,
+  onPlayFromIndex
+}: {
+  note: SolfegeNumber
+  index: number
+  currentIndex: number
+  onPlayFromIndex: (index: number) => void
+}) {
+  // 预计算 className，避免内联字符串拼接
+  const className = useMemo(() => {
+    const classes = ['sequence-note']
+    if (index === currentIndex) classes.push('active')
+    if (index < currentIndex) classes.push('played')
+    return classes.join(' ')
+  }, [index, currentIndex])
+
+  return (
+    <span
+      className={className}
+      onClick={() => onPlayFromIndex(index)}
+      title={`从第 ${index + 1} 个音开始播放`}
+    >
+      {note}
+    </span>
+  )
+})
 
 function ControlPanel({
   sequence,
@@ -111,20 +144,19 @@ function ControlPanel({
         </button>
       </div>
 
-      {/* 序列显示 */}
+      {/* 序列显示 - 使用优化的 SequenceNoteItem */}
       {sequence.length > 0 && (
         <div className="sequence-display">
           <div className="sequence-label">当前序列：</div>
           <div className="sequence-notes">
             {sequence.map((note, idx) => (
-              <span
+              <SequenceNoteItem
                 key={idx}
-                className={`sequence-note ${idx === currentIndex ? 'active' : ''} ${idx < currentIndex ? 'played' : ''}`}
-                onClick={() => onPlayFromIndex(idx)}
-                title={`从第 ${idx + 1} 个音开始播放`}
-              >
-                {note}
-              </span>
+                note={note}
+                index={idx}
+                currentIndex={currentIndex}
+                onPlayFromIndex={onPlayFromIndex}
+              />
             ))}
           </div>
         </div>
@@ -181,5 +213,17 @@ function ControlPanel({
   )
 }
 
-const ControlPanelMemo = memo(ControlPanel)
+// 使用自定义比较函数，只在必要时更新
+const ControlPanelMemo = memo(ControlPanel, (prevProps, nextProps) => {
+  return (
+    prevProps.sequence === nextProps.sequence &&
+    prevProps.currentIndex === nextProps.currentIndex &&
+    prevProps.playbackState === nextProps.playbackState &&
+    prevProps.currentNote === nextProps.currentNote &&
+    prevProps.tapNoteInfo === nextProps.tapNoteInfo &&
+    prevProps.bpm === nextProps.bpm &&
+    prevProps.sequenceLength === nextProps.sequenceLength &&
+    prevProps.prepareDelayMs === nextProps.prepareDelayMs
+  )
+})
 export default ControlPanelMemo

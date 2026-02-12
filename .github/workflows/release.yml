@@ -34,6 +34,20 @@ jobs:
           npm run build
           electron-builder --mac --publish never
 
+      - name: Rename x64 artifacts (Mac)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd release
+          # 给 x64 版本添加 -x64 后缀，避免用户在 Apple Silicon 上误安装
+          for file in *.dmg *.zip; do
+            if [[ "$file" != *"-arm64"* ]] && [[ "$file" != *"-x64"* ]]; then
+              echo "Renaming x64 file: $file"
+              mv "$file" "${file%.*}-x64.${file##*.}"
+            fi
+          done
+          echo "=== Files after renaming ==="
+          ls -lh
+
       - name: Build and package (Windows)
         if: matrix.os == 'windows-latest'
         run: |
