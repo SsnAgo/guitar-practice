@@ -49,18 +49,8 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
-  // macOS: 关闭窗口时隐藏而不是销毁，保持状态
-  mainWindow.on('close', (e) => {
-    if (process.platform === 'darwin') {
-      e.preventDefault()
-      // 通知渲染进程即将关闭窗口（用于暂停播放等）
-      mainWindow?.webContents.send('window-will-hide')
-      mainWindow?.hide()
-    }
-  })
-
-  // 窗口真正被销毁时清空引用
-  mainWindow.on('closed', () => {
+  // 窗口关闭事件
+  mainWindow.on('close', () => {
     mainWindow = null
   })
 }
@@ -70,13 +60,9 @@ app.whenReady().then(() => {
   createWindow()
 
   app.on('activate', () => {
-    // macOS 特性：点击 dock 图标时显示窗口（而不是创建新窗口）
-    if (mainWindow === null) {
+    // macOS 特性：点击 dock 图标时重新创建窗口
+    if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
-    } else if (mainWindow.isMinimized()) {
-      mainWindow.restore()
-    } else if (!mainWindow.isVisible()) {
-      mainWindow.show()
     }
   })
 })

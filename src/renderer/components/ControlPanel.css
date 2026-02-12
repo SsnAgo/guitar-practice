@@ -1,10 +1,44 @@
 .control-panel {
   background: #1e1e2e;
-  border-radius: 12px;
-  padding: 16px 20px;
+  display: flex;
+  flex-direction: row;
+}
+
+/* 控制台样式 */
+.console-panel {
+  padding: 12px 16px;
+  gap: 16px;
+  border-top: 1px solid #2a2a3e;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 控制台参数区域 - 左侧 */
+.console-params {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+/* 控制台信息区域 - 右侧 */
+.console-info {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.console-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #333;
 }
 
 .control-row {

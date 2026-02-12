@@ -48,6 +48,7 @@ function App() {
   const [isSelectingPosition, setIsSelectingPosition] = useState(false)
   const [tapHighlight, setTapHighlight] = useState<GuitarPosition | null>(null)
   const [tapNoteInfo, setTapNoteInfo] = useState<MappedNote | null>(null)
+  const [isSequenceCollapsed, setIsSequenceCollapsed] = useState(true)
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { playNote, init: initAudio, warmup: warmupAudio } = useAudioEngine()
 
@@ -84,7 +85,6 @@ function App() {
     const handleFirstInteraction = async () => {
       await initAudio()
     }
-
     // 监听点击和按键事件，只触发一次
     document.addEventListener('click', handleFirstInteraction, { once: true })
     document.addEventListener('keydown', handleFirstInteraction, { once: true })
@@ -108,18 +108,30 @@ function App() {
         pause()
       }
     }
-
     // 只在 Electron 环境中注册监听
     if (window.electron) {
       window.electron.receive('window-will-hide', handleWindowWillHide)
     }
-
     return () => {
       if (window.electron) {
         window.electron.removeListener('window-will-hide', handleWindowWillHide)
       }
     }
   }, [playbackState, pause])
+
+  // 当折叠且没有序列时，自动生成
+  useEffect(() => {
+    if (!isSequenceCollapsed && sequence.length === 0) {
+      generate()
+    }
+  }, [isSequenceCollapsed, sequence, generate])
+
+  // 监听播放状态变化，暂停时自动折叠
+  useEffect(() => {
+    if (playbackState === 'paused') {
+      setIsSequenceCollapsed(false)
+    }
+  }, [playbackState, setIsSequenceCollapsed])
 
   // 设置相关的回调
   const handleDoModeChange = useCallback((mode: DoMode) => {
@@ -141,6 +153,11 @@ function App() {
   const handlePrepareDelayChange = useCallback((prepareDelayMs: number) => {
     setSettings(prev => ({ ...prev, prepareDelayMs }))
   }, [])
+
+  const handleGenerateClick = useCallback(() => {
+    generate()
+    setIsSequenceCollapsed(false)
+  }, [generate])
 
   const handleToggleSelectPosition = useCallback(() => {
     setIsSelectingPosition(prev => !prev)
@@ -199,18 +216,19 @@ function App() {
         <p className="subtitle">吉他简谱视奏练习</p>
       </header>
 
-      <div className="app-body">
-        {/* 设置面板 */}
-        <SettingsPanel
-          doMode={settings.doMode}
-          doNoteName={settings.doNoteName}
-          doPosition={settings.doPosition}
-          onDoModeChange={handleDoModeChange}
-          onDoNoteNameChange={handleDoNoteNameChange}
-          isSelectingPosition={isSelectingPosition}
-          onToggleSelectPosition={handleToggleSelectPosition}
-        />
+      {/* 调式选择面板 */}
+      <SettingsPanel
+        doMode={settings.doMode}
+        doNoteName={settings.doNoteName}
+        doPosition={settings.doPosition}
+        onDoModeChange={handleDoModeChange}
+        onDoNoteNameChange={handleDoNoteNameChange}
+        isSelectingPosition={isSelectingPosition}
+        onToggleSelectPosition={handleToggleSelectPosition}
+      />
 
+      {/* 中间主体区域：琴颈 + 数字序列 */}
+      <div className="main-content">
         {/* 吉他琴颈 */}
         <div className={`guitar-section ${isSelectingPosition ? 'selecting' : ''}`}>
           <GuitarNeck
@@ -222,25 +240,73 @@ function App() {
           />
         </div>
 
-        {/* 控制面板 */}
+        {/* 数字序列显示 + 播放控制 */}
+        {!isSequenceCollapsed && sequence.length > 0 ? (
+          <div className="sequence-section">
+            {/* 折叠提示 - 悬浮显示 */}
+            <div className="collapse-hint" onClick={() => setIsSequenceCollapsed(true)} title="收起数字序列">
+              <span className="collapse-icon">▼</span>
+              <span className="collapse-hint-text">收起</span>
+            </div>
+
+            <div className="sequence-content">
+              {/* 播放控制 - 在左侧 */}
+              <div className="playback-controls-left">
+                {playbackState === 'idle' && (
+                  <button className="btn btn-play-large" onClick={play}>
+                    ▶
+                  </button>
+                )}
+                {playbackState === 'playing' && (
+                  <div className="vertical-buttons">
+                    <button className="btn btn-pause" onClick={pause}>⏸</button>
+                    <button className="btn btn-stop" onClick={stop}>⏹</button>
+                  </div>
+                )}
+                {playbackState === 'paused' && (
+                  <div className="vertical-buttons">
+                    <button className="btn btn-play" onClick={resume}>▶</button>
+                    <button className="btn btn-stop" onClick={stop}>⏹</button>
+                  </div>
+                )}
+              </div>
+
+              {/* 数字序列 */}
+              <div className="sequence-notes">
+                {sequence.map((note, idx) => (
+                  <span
+                    key={idx}
+                    className={`sequence-note ${idx === currentIndex ? 'active' : ''} ${idx < currentIndex ? 'played' : ''}`}
+                    onClick={() => playFromIndex(idx)}
+                    title={`从第 ${idx + 1} 个音开始播放`}
+                  >
+                    {note}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* 底部控制台 */}
+      <div className="console-section">
+        {/* 展开提示 */}
+        {isSequenceCollapsed && sequence.length > 0 && (
+          <div className="expand-hint" onClick={() => setIsSequenceCollapsed(false)} title="展开数字序列">
+            <span className="expand-icon">▲</span>
+            <span className="expand-hint-text">展开序列</span>
+          </div>
+        )}
         <ControlPanel
           sequence={sequence}
-          currentIndex={currentIndex}
-          playbackState={playbackState}
-          currentNote={currentNote}
           bpm={settings.bpm}
           sequenceLength={settings.sequenceLength}
-          onGenerate={generate}
-          onPlay={play}
-          onPlayFromIndex={playFromIndex}
-          onPause={pause}
-          onResume={resume}
-          onStop={stop}
+          onGenerate={handleGenerateClick}
           onBpmChange={handleBpmChange}
           onSequenceLengthChange={handleSequenceLengthChange}
           prepareDelayMs={settings.prepareDelayMs}
           onPrepareDelayChange={handlePrepareDelayChange}
-          tapNoteInfo={tapNoteInfo}
         />
       </div>
     </div>
