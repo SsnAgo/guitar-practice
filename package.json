@@ -1,6 +1,6 @@
 {
   "name": "guitar-practice",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "一个基于 Electron + React 的吉他练习桌面应用",
   "main": "out/main/index.js",
   "author": "ago",
@@ -51,19 +51,27 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         },
         {
           "target": "dmg",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
