@@ -24,9 +24,8 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: |
+        run:
           npm ci
-          npm install -g electron-builder
 
       - name: Build and package (Mac)
         if: matrix.os == 'macos-latest'
