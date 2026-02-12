@@ -45,14 +45,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-build
-          path: release/*
+          path: |
+            release/*.dmg
+            release/*.zip
 
       - name: Upload artifacts (Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: release/*
+          path: release/*.exe
 
   release:
     needs: build
