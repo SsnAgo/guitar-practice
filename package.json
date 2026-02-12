@@ -1,6 +1,6 @@
 {
   "name": "guitar-practice",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "一个基于 Electron + React 的吉他练习桌面应用",
   "main": "out/main/index.js",
   "author": "ago",
