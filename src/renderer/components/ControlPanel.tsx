@@ -93,6 +93,9 @@ function ControlPanel({
               const val = parseFloat(e.target.value)
               if (!isNaN(val)) {
                 onPrepareDelayChange(Math.max(0, Math.min(10000, Math.round(val * 1000))))
+              } else {
+                // 清空输入框时设置为 0
+                onPrepareDelayChange(0)
               }
             }}
             className="param-input"

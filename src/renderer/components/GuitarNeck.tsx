@@ -230,17 +230,6 @@ function GuitarNeck({
           </text>
         ))}
 
-        {/* 琴头标签 (右侧) */}
-        <text
-          x={SVG_WIDTH - 20}
-          y={SVG_HEIGHT / 2 + 5}
-          textAnchor="middle"
-          fontSize={13}
-          fill="#888"
-          fontWeight="bold"
-        >
-          琴头
-        </text>
 
         {/* 可点击区域 (使用事件委托，data 属性用于识别) */}
         {clickAreas.map(({ string, fret, x, y, width, height }) => (

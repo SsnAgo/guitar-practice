@@ -14,8 +14,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   doNoteName: 'C',
   doPosition: { string: 5, fret: 3 },
   bpm: 90,
-  sequenceLength: 10,
-  prepareDelayMs: 2000,
+  sequenceLength: 7,
+  prepareDelayMs: 1000,
 }
 
 function App() {
