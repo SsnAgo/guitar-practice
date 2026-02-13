@@ -4,7 +4,9 @@ import {
   MAX_FRET,
   FRET_MARKERS,
   DOUBLE_FRET_MARKERS,
-  STANDARD_TUNING_NAMES
+  STANDARD_TUNING_NAMES,
+  getNoteMidi,
+  midiToNoteName
 } from '../utils/guitarConstants'
 import { useMemo, memo, useRef, useCallback } from 'react'
 import './GuitarNeck.css'
@@ -111,7 +113,7 @@ const StaticNeckLayer = memo(function StaticNeckLayer() {
           cy={PADDING_TOP + NECK_HEIGHT / 2}
           r={6}
           fill="#D4C4A0"
-          opacity={0.6}
+          opacity={0.2}
         />
       ))}
 
@@ -120,17 +122,17 @@ const StaticNeckLayer = memo(function StaticNeckLayer() {
         <g key={`dmarker-${fret}`}>
           <circle
             cx={getFretCenterX(fret)}
-            cy={PADDING_TOP + NECK_HEIGHT / 2 - STRING_SPACING * 1.2}
+            cy={PADDING_TOP + NECK_HEIGHT / 2 - STRING_SPACING }
             r={6}
             fill="#D4C4A0"
-            opacity={0.6}
+            opacity={0.2}
           />
           <circle
             cx={getFretCenterX(fret)}
-            cy={PADDING_TOP + NECK_HEIGHT / 2 + STRING_SPACING * 1.2}
+            cy={PADDING_TOP + NECK_HEIGHT / 2 + STRING_SPACING}
             r={6}
             fill="#D4C4A0"
-            opacity={0.6}
+            opacity={0.2}
           />
         </g>
       ))}
@@ -266,6 +268,9 @@ const DynamicHighlightLayer = memo(function DynamicHighlightLayer({
   tapHighlight?: GuitarPosition | null
   doPosition?: GuitarPosition | null
 }) {
+  // 计算点击位置的音名
+  const tapHighlightNoteName = tapHighlight ? midiToNoteName(getNoteMidi(tapHighlight.string, tapHighlight.fret)) : null
+
   return (
     <g className="dynamic-highlight-layer">
       {/* do 位置标记 */}
@@ -301,7 +306,7 @@ const DynamicHighlightLayer = memo(function DynamicHighlightLayer({
             cy={getStringY(tapHighlight.string)}
             r={16}
             fill="#2196F3"
-            opacity={0.25}
+            opacity={0.35}
           />
           <circle
             cx={getFretCenterX(tapHighlight.fret)}
@@ -312,6 +317,19 @@ const DynamicHighlightLayer = memo(function DynamicHighlightLayer({
             strokeWidth={2}
             className="tap-dot"
           />
+          {/* 显示音名 */}
+          {tapHighlightNoteName && (
+            <text
+              x={getFretCenterX(tapHighlight.fret)}
+              y={getStringY(tapHighlight.string) - 18}
+              textAnchor="middle"
+              fontSize={14}
+              fill="#2196F3"
+              fontWeight="bold"
+            >
+              {tapHighlightNoteName}
+            </text>
+          )}
         </g>
       )}
 

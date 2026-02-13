@@ -79,6 +79,11 @@ function App() {
   const [restoredPlaybackState, setRestoredPlaybackState] = useState(savedAppState.playbackState)
   const [restoredCurrentIndex, setRestoredCurrentIndex] = useState(savedAppState.currentIndex)
 
+  // 序列缩放
+  const containerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { playNote, init: initAudio, warmup: warmupAudio } = useAudioEngine()
 
@@ -176,6 +181,55 @@ function App() {
       setIsSequenceCollapsed(false)
     }
   }, [playbackState, setIsSequenceCollapsed])
+
+  // 自动缩放数字序列以适应容器
+  useEffect(() => {
+    // 如果序列收起，重置缩放
+    if (isSequenceCollapsed) {
+      setScale(1)
+      return
+    }
+
+    const container = containerRef.current
+    const content = contentRef.current
+
+    if (!container || !content || sequence.length === 0) return
+
+    const updateScale = () => {
+      const containerRect = container.getBoundingClientRect()
+
+      // 总是重新计算原始尺寸，确保准确
+      const currentTransform = content.style.transform
+      content.style.transform = 'none'
+      const contentRect = content.getBoundingClientRect()
+      content.style.transform = currentTransform
+
+      const originalWidth = contentRect.width
+      const originalHeight = contentRect.height
+
+      if (originalWidth === 0 || originalHeight === 0) return
+
+      // 只根据宽度计算缩放，让高度自然适应
+      const newScale = Math.min(containerRect.width / originalWidth, 1)
+
+      setScale(Math.max(newScale, 0.5)) // 最小缩放到 0.5
+    }
+
+    // 使用 ResizeObserver 监听容器大小变化
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(updateScale)
+    })
+
+    resizeObserver.observe(container)
+
+    // 延迟一点执行，确保 DOM 完全渲染
+    const timer = setTimeout(updateScale, 100)
+
+    return () => {
+      resizeObserver.disconnect()
+      clearTimeout(timer)
+    }
+  }, [sequence.length, isSequenceCollapsed])
 
   // 设置相关的回调
   const handleDoModeChange = useCallback((mode: DoMode) => {
@@ -316,17 +370,23 @@ function App() {
               </div>
 
               {/* 数字序列 */}
-              <div className="sequence-notes">
-                {sequence.map((note, idx) => (
-                  <span
-                    key={idx}
-                    className={`sequence-note ${idx === currentIndex ? 'active' : ''} ${idx < currentIndex ? 'played' : ''}`}
-                    onClick={() => playFromIndex(idx)}
-                    title={`从第 ${idx + 1} 个音开始播放`}
-                  >
-                    {note}
-                  </span>
-                ))}
+              <div className="sequence-notes-container" ref={containerRef}>
+                <div
+                  className="sequence-notes"
+                  ref={contentRef}
+                  style={{ transform: `scale(${scale})` }}
+                >
+                  {sequence.map((note, idx) => (
+                    <span
+                      key={idx}
+                      className={`sequence-note ${idx === currentIndex ? 'active' : ''} ${idx < currentIndex ? 'played' : ''}`}
+                      onClick={() => playFromIndex(idx)}
+                      title={`从第 ${idx + 1} 个音开始播放`}
+                    >
+                      {note}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
