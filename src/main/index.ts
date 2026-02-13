@@ -1,6 +1,9 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
 
+// 设置应用名称，解决进程名和 Dock 栏显示 Electron 的问题
+app.setName('Guitar Practice')
+
 // 确保 GPU 硬件加速启用，提升 SVG 渲染性能
 app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder')
 app.commandLine.appendSwitch('disable-gpu-vsync')

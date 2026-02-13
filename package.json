@@ -36,6 +36,7 @@
     "directories": {
       "output": "release"
     },
+    "icon": "build/icons/512x512.png",
     "files": [
       "out/**/*",
       "dist/**/*",
@@ -43,6 +44,7 @@
     ],
     "asar": false,
     "mac": {
+      "icon": "build/icons/1024x1024.png",
       "category": "public.app-category.music",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -90,6 +92,7 @@
       ]
     },
     "win": {
+      "icon": "build/icons/icon.ico",
       "target": [
         {
           "target": "nsis",
