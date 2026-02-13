@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import GuitarNeck from './components/GuitarNeck'
 import ControlPanel from './components/ControlPanel'
 import SettingsPanel from './components/SettingsPanel'
@@ -79,10 +79,28 @@ function App() {
   const [restoredPlaybackState, setRestoredPlaybackState] = useState(savedAppState.playbackState)
   const [restoredCurrentIndex, setRestoredCurrentIndex] = useState(savedAppState.currentIndex)
 
-  // 序列缩放
-  const containerRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
+  // 序列区域高度（默认 120px，最小 80px，最大 300px）
+  const [sequenceHeight, setSequenceHeight] = useState(savedAppState.sequenceHeight ?? 120)
+  const MIN_SEQUENCE_HEIGHT = 80
+  const MAX_SEQUENCE_HEIGHT = 300
+
+  // 数字缩放比例
   const [scale, setScale] = useState(1)
+  // 最优行数（用于均匀分布）
+  const [optimalRows, setOptimalRows] = useState(1)
+
+  // 序列容器尺寸监听
+  const sequenceNotesRef = useRef<HTMLDivElement>(null)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+
+  // 拖拽相关
+  const isDraggingRef = useRef(false)
+  const dragStartYRef = useRef(0)
+  const dragStartHeightRef = useRef(0)
+  const sequenceHeightRef = useRef(sequenceHeight)
+  useEffect(() => {
+    sequenceHeightRef.current = sequenceHeight
+  }, [sequenceHeight])
 
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { playNote, init: initAudio, warmup: warmupAudio } = useAudioEngine()
@@ -143,8 +161,9 @@ function App() {
       sequence: sequence.length > 0 ? sequence : undefined,
       playbackState,
       currentIndex: currentIndex >= 0 ? currentIndex : undefined,
+      sequenceHeight,
     })
-  }, [isSequenceCollapsed, sequence, playbackState, currentIndex])
+  }, [isSequenceCollapsed, sequence, playbackState, currentIndex, sequenceHeight])
 
   // 监听窗口隐藏事件，在关闭窗口时保存状态
   useEffect(() => {
@@ -182,54 +201,146 @@ function App() {
     }
   }, [playbackState, setIsSequenceCollapsed])
 
-  // 自动缩放数字序列以适应容器
+  // 拖拽处理：在 mousedown 时动态绑定 document 事件，避免 useEffect 闭包陷阱
+  const handleResizerMouseDown = useCallback((e: React.MouseEvent) => {
+    isDraggingRef.current = true
+    dragStartYRef.current = e.clientY
+    dragStartHeightRef.current = sequenceHeightRef.current
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const deltaY = ev.clientY - dragStartYRef.current
+      const newHeight = dragStartHeightRef.current - deltaY
+      const clampedHeight = Math.max(MIN_SEQUENCE_HEIGHT, Math.min(MAX_SEQUENCE_HEIGHT, newHeight))
+      setSequenceHeight(clampedHeight)
+    }
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false
+      document.body.classList.remove('dragging-sequence')
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.body.classList.add('dragging-sequence')
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    e.preventDefault()
+  }, [])
+
+  // .sequence-notes 是否在 DOM 中（取决于 isSequenceCollapsed 和 sequence.length）
+  const sequenceVisible = !isSequenceCollapsed && sequence.length > 0
+
+  // 使用 ResizeObserver 监听序列容器尺寸变化
+  // 依赖 sequenceVisible 确保元素出现/消失时重新绑定观察器
   useEffect(() => {
-    // 如果序列收起，重置缩放
-    if (isSequenceCollapsed) {
+    const element = sequenceNotesRef.current
+    if (!element) return
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        setContainerSize({ width, height })
+      }
+    })
+
+    resizeObserver.observe(element)
+    return () => resizeObserver.disconnect()
+  }, [sequenceVisible])
+
+  // 根据容器实际尺寸和序列长度计算最优数字大小
+  useEffect(() => {
+    if (isSequenceCollapsed || sequence.length === 0) {
       setScale(1)
+      setOptimalRows(1)
       return
     }
 
-    const container = containerRef.current
-    const content = contentRef.current
+    const { width: containerWidth } = containerSize
 
-    if (!container || !content || sequence.length === 0) return
+    // 如果容器宽度为 0（初始渲染时 ResizeObserver 还未触发），使用估算值
+    // .sequence-content 的父容器通常接近窗口宽度
+    // 减去左侧播放按钮（约 60px）、gap（12px）、padding（24px）
+    const ESTIMATED_WIDTH = 1000
+    const BUTTON_AND_GAP = 74
+    const availableWidth = containerWidth > 0 ? containerWidth : ESTIMATED_WIDTH - BUTTON_AND_GAP
 
-    const updateScale = () => {
-      const containerRect = container.getBoundingClientRect()
+    // 直接使用 sequenceHeight 计算高度（减去 padding）
+    // .sequence-section 有 padding: 8px 12px
+    const PADDING_VERTICAL = 16 // 8px * 2
+    const containerHeight = sequenceHeight - PADDING_VERTICAL
 
-      // 总是重新计算原始尺寸，确保准确
-      const currentTransform = content.style.transform
-      content.style.transform = 'none'
-      const contentRect = content.getBoundingClientRect()
-      content.style.transform = currentTransform
-
-      const originalWidth = contentRect.width
-      const originalHeight = contentRect.height
-
-      if (originalWidth === 0 || originalHeight === 0) return
-
-      // 只根据宽度计算缩放，让高度自然适应
-      const newScale = Math.min(containerRect.width / originalWidth, 1)
-
-      setScale(Math.max(newScale, 0.5)) // 最小缩放到 0.5
+    if (availableWidth <= 0 || containerHeight <= 0) {
+      setScale(1)
+      setOptimalRows(1)
+      return
     }
 
-    // 使用 ResizeObserver 监听容器大小变化
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(updateScale)
-    })
+    const count = sequence.length
+    const baseSize = 36 // 基准数字大小（与 CSS 中的基准值一致）
+    const gapRatio = 0.25 // gap 占数字大小的比例
 
-    resizeObserver.observe(container)
+    // 目标：找到最优的行数和数字大小
+    let maxSize = 0
+    let bestScale = 1
+    let bestRows = 1
 
-    // 延迟一点执行，确保 DOM 完全渲染
-    const timer = setTimeout(updateScale, 100)
+    // 遍历可能的行数（1 到 count 行，最多 10 行）
+    for (let rows = 1; rows <= Math.min(10, count); rows++) {
+      const cols = Math.ceil(count / rows)
 
-    return () => {
-      resizeObserver.disconnect()
-      clearTimeout(timer)
+      // 从高度约束计算最大 size:
+      //   size × (rows + (rows - 1) × r) ≤ H
+      const maxSizeByHeight = containerHeight / (rows + (rows - 1) * gapRatio)
+
+      // 从宽度约束计算最大 size:
+      //   size × (cols + (cols - 1) × r) ≤ W
+      const maxSizeByWidth = availableWidth / (cols + (cols - 1) * gapRatio)
+
+      // 取两者较小值（必须同时满足宽高约束）
+      const size = Math.min(maxSizeByHeight, maxSizeByWidth)
+
+      // 如果这个配置的数字更大，就采用
+      if (size > maxSize) {
+        maxSize = size
+        bestScale = size / baseSize
+        bestRows = rows
+      }
     }
-  }, [sequence.length, isSequenceCollapsed])
+
+    setScale(bestScale)
+    setOptimalRows(bestRows)
+  }, [sequence.length, isSequenceCollapsed, containerSize, sequenceHeight])
+
+  // 将序列按行数均匀分组（用 useMemo 缓存，避免重复计算）
+  const sequenceRows = useMemo(() => {
+    if (optimalRows <= 1 || sequence.length === 0) return [sequence]
+
+    const count = sequence.length
+    const basePerRow = Math.floor(count / optimalRows)
+    const extra = count % optimalRows
+
+    const result: SolfegeNumber[][] = []
+    let index = 0
+
+    for (let i = 0; i < optimalRows; i++) {
+      // 前 extra 行多分配 1 个
+      const itemsInThisRow = i < extra ? basePerRow + 1 : basePerRow
+      result.push(sequence.slice(index, index + itemsInThisRow))
+      index += itemsInThisRow
+    }
+
+    return result
+  }, [sequence, optimalRows])
+
+  // 预计算每行的起始索引（用于从分组坐标映射回原序列索引）
+  const rowStartIndices = useMemo(() => {
+    const starts: number[] = [0]
+    for (let i = 0; i < sequenceRows.length - 1; i++) {
+      starts.push(starts[i] + sequenceRows[i].length)
+    }
+    return starts
+  }, [sequenceRows])
 
   // 设置相关的回调
   const handleDoModeChange = useCallback((mode: DoMode) => {
@@ -340,11 +451,20 @@ function App() {
 
         {/* 数字序列显示 + 播放控制 */}
         {!isSequenceCollapsed && sequence.length > 0 ? (
-          <div className="sequence-section">
+          <div
+            className="sequence-section"
+            style={{
+              '--sequence-height': `${sequenceHeight}px`,
+              '--sequence-scale': scale,
+            } as React.CSSProperties}
+          >
+            {/* 拖拽调整高度的分隔条 */}
+            <div className="sequence-resizer" onMouseDown={handleResizerMouseDown} title="拖拽调整高度" />
+
             {/* 折叠提示 - 悬浮显示 */}
             <div className="collapse-hint" onClick={() => setIsSequenceCollapsed(true)} title="收起数字序列">
               <span className="collapse-icon">▼</span>
-              <span className="collapse-hint-text">收起</span>
+              <span className="collapse-hint-text">收起序列</span>
             </div>
 
             <div className="sequence-content">
@@ -370,23 +490,24 @@ function App() {
               </div>
 
               {/* 数字序列 */}
-              <div className="sequence-notes-container" ref={containerRef}>
-                <div
-                  className="sequence-notes"
-                  ref={contentRef}
-                  style={{ transform: `scale(${scale})` }}
-                >
-                  {sequence.map((note, idx) => (
-                    <span
-                      key={idx}
-                      className={`sequence-note ${idx === currentIndex ? 'active' : ''} ${idx < currentIndex ? 'played' : ''}`}
-                      onClick={() => playFromIndex(idx)}
-                      title={`从第 ${idx + 1} 个音开始播放`}
-                    >
-                      {note}
-                    </span>
-                  ))}
-                </div>
+              <div className="sequence-notes" ref={sequenceNotesRef}>
+                {sequenceRows.map((row, rowIdx) => (
+                  <div key={rowIdx} className="sequence-row">
+                    {row.map((note, colIdx) => {
+                      const idx = rowStartIndices[rowIdx] + colIdx
+                      return (
+                        <span
+                          key={idx}
+                          className={`sequence-note ${idx === currentIndex ? 'active' : ''} ${idx < currentIndex ? 'played' : ''}`}
+                          onClick={() => playFromIndex(idx)}
+                          title={`从第 ${idx + 1} 个音开始播放`}
+                        >
+                          {note}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

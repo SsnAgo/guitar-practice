@@ -19,6 +19,8 @@ export interface AppState {
   playbackState?: PlaybackState
   /** 当前播放到的索引（可选） */
   currentIndex?: number
+  /** 序列区域高度（像素） */
+  sequenceHeight?: number
 }
 
 /** 十二平均律音名 */

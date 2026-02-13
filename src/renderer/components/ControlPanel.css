@@ -153,65 +153,6 @@
   background: #d32f2f;
 }
 
-/* Sequence display */
-.sequence-display {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 4px 0;
-}
-
-.sequence-label {
-  font-size: 13px;
-  color: #aaa;
-  white-space: nowrap;
-}
-
-.sequence-notes {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.sequence-note {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: bold;
-  color: #ccc;
-  background: #2a2a3e;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  user-select: none;
-  /* GPU 加速提示 */
-  will-change: transform, background, color;
-}
-
-.sequence-note:hover {
-  background: #3a3a50;
-  color: #fff;
-  transform: scale(1.08);
-}
-
-.sequence-note.active {
-  background: #FF5722;
-  color: white;
-  transform: scale(1.15);
-  box-shadow: 0 0 12px rgba(255, 87, 34, 0.5);
-  /* 主动画需要持续优化 */
-  will-change: transform, box-shadow;
-}
-
-.sequence-note.played {
-  color: #666;
-  background: #1a1a2a;
-}
-
 /* Playback row */
 .playback-row {
   justify-content: space-between;
