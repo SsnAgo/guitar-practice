@@ -32,11 +32,21 @@ export function generateSequence(length: number): SolfegeNumber[] {
     return base
   }
 
-  // 超出 7 的部分用随机 1-7 填充
-  const extra: SolfegeNumber[] = []
-  for (let i = 0; i < safeLength - 7; i++) {
-    extra.push((Math.floor(Math.random() * 7) + 1) as SolfegeNumber)
+  // 在保证 1-7 各出现一次的基础上继续生成
+  // 约束：相邻两个数字不能相同
+  const sequence: SolfegeNumber[] = [...base]
+
+  while (sequence.length < safeLength) {
+    const prev = sequence[sequence.length - 1]
+
+    // 随机挑选一个 1-7，直到与前一个不同
+    let next: SolfegeNumber
+    do {
+      next = (Math.floor(Math.random() * 7) + 1) as SolfegeNumber
+    } while (next === prev)
+
+    sequence.push(next)
   }
 
-  return [...base, ...extra]
+  return sequence
 }
